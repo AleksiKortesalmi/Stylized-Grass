@@ -111,6 +111,7 @@ Material:
     m_Ints: []
     m_Floats:
     - _AlphaClip: 0
+    - _AlphaClipThreshold: 0.75
     - _AlphaToMask: 0
     - _BILLBOARD: 1
     - _Blend: 0

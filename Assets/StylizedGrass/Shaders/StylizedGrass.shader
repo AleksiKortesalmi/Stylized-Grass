@@ -6,6 +6,7 @@ Shader "Custom/Stylized Grass Transparent"
         [MainColor] _MainColor ("Color", Color) = (1, 1, 1, 1)
         _GroundColor ("Ground Color", Color) = (1, 1, 1, 1)
         _GroundBlendHeight ("Ground Blend Height", Float) = .25
+        _AlphaClipThreshold ("Alpha Clipping Threshold", Float) = .5
         [Header(Lighting)][Space] _RampTexture ("Ramp Texture", 2D) = "white" {}
         _ShadowColor ("Shadow Color", Color) = (0.25, 0.25, 0.25, 1)
     }
@@ -29,6 +30,7 @@ Shader "Custom/Stylized Grass Transparent"
             float4 _MainColor;
             float4 _GroundColor;
             float _GroundBlendHeight;
+            float _AlphaClipThreshold;
             float4 _ShadowColor;
             CBUFFER_END
         ENDHLSL
@@ -124,7 +126,7 @@ Shader "Custom/Stylized Grass Transparent"
                     color.rgb = MixFog(color.rgb, fogFactor);
                 #endif
 
-                clip(color.a - 0.5f);
+                clip(color.a - _AlphaClipThreshold);
 
                 return color;
             }
