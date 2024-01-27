@@ -55,6 +55,8 @@ public class Grass : MonoBehaviour
     {
         if (material)
         {
+            InitializeRenderParams(out rp);
+
             // Local shader keywords
             enableHeightKeyword = new(material.shader, enableHeightString);
             enableRotationKeyword = new(material.shader, enableRotString);
@@ -97,7 +99,10 @@ public class Grass : MonoBehaviour
         rp.matProps.SetInt("_StartIndex", (int)mesh.GetIndexStart(0));
         rp.matProps.SetInt("_BaseVertexIndex", (int)mesh.GetBaseVertex(0));
         rp.matProps.SetInt("_NumInteractors", grassInteractors.Length);
-        rp.matProps.SetInt("_RampTexWidth", material.GetTexture("_RampTexture").width);
+
+        var rampTexture = material.GetTexture("_RampTexture");
+        if(rampTexture != null)
+            rp.matProps.SetInt("_RampTexWidth", rampTexture.width);
 
         rp.matProps.SetFloat("_WindStrength", windStrength);
         rp.matProps.SetFloat("_WindSpeed", windSpeed);
