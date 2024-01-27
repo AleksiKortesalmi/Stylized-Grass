@@ -4,7 +4,7 @@ using UnityEditor.EditorTools;
 using UnityEngine;
 
 [EditorTool("Draw Grass", typeof(Grass))]
-class DrawGrassTool : EditorTool, IDrawSelectedHandles
+class GrassDrawTool : EditorTool, IDrawSelectedHandles
 {
     readonly Vector2 brushRadiusRange = new(0.1f, 10f);
     readonly Vector2 grassRadiusRange = new(0.1f, 1f);
@@ -20,7 +20,7 @@ class DrawGrassTool : EditorTool, IDrawSelectedHandles
 
     void OnEnable()
     {
-        m_Icon = new GUIContent("Text Icon", AssetDatabase.LoadAssetAtPath<Texture>("Assets/StylizedGrass/Examples/Textures/GrassDrawIcon.png"), "Grass drawing tool.");
+        m_Icon = new GUIContent("Draw Grass", AssetDatabase.LoadAssetAtPath<Texture>("Assets/StylizedGrass/Examples/Textures/GrassDrawIcon.png"), "Grass Draw Tool");
     }
 
     void OnDisable()
@@ -54,7 +54,7 @@ class DrawGrassTool : EditorTool, IDrawSelectedHandles
                     // Limit the amount of points poisson has to compare against to the adjacent chunks
                     targetGrass.InstancePointData.GetPointsAdjacentChunks(hit.point, ref pointCache);
 
-                    targetGrass.InstancePointData.AddPointsToGrid(
+                    targetGrass.InstancePointData.AddPointsToChunk(
                         PoissonDiscSampling.GeneratePointsInDisc(pointCache, hit.point, grassRadius)
                     );
 

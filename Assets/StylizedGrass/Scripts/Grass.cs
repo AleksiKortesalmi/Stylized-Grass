@@ -111,18 +111,6 @@ public class Grass : MonoBehaviour
         rp.matProps.SetMatrix("_ObjectToWorld", objectToWorld);
     }
 
-    void InitializeRenderParams(out RenderParams renderParams)
-    {
-        // Assign material properties
-        renderParams = new(material)
-        {
-            worldBounds = instancePointData.Bounds,
-            shadowCastingMode = ShadowCastingMode.Off,
-            receiveShadows = true,
-            matProps = new MaterialPropertyBlock()
-        };
-    }
-
     void InitializeBuffers()
     {
         // Lighten the load for editormode updates
@@ -151,6 +139,18 @@ public class Grass : MonoBehaviour
         meshUVsBuffer.SetData(mesh.uv);
     }
 
+    void InitializeRenderParams(out RenderParams renderParams)
+    {
+        // Assign material properties
+        renderParams = new(material)
+        {
+            worldBounds = instancePointData.Bounds,
+            shadowCastingMode = ShadowCastingMode.Off,
+            receiveShadows = true,
+            matProps = new MaterialPropertyBlock()
+        };
+    }
+
     void Update()
     {
         // Allow live editing in the editor
@@ -167,6 +167,7 @@ public class Grass : MonoBehaviour
         if (grassInteractors.Length > 0 && interactorsBuffer != null)
         {
             UpdateInteractorVectors();
+
             interactorsBuffer.SetData(interactorVectors);
         }
 
@@ -205,8 +206,8 @@ public class Grass : MonoBehaviour
 
     bool GraphicsBuffersInitialized()
     {
-        return (instancePointsBuffer != null && instancePointData.TotalPointAmount == 0) &&
-            (interactorsBuffer != null && grassInteractors.Length == 0) &&
+        return instancePointsBuffer != null &&
+            instancePointData.TotalPointAmount != 0 &&
             meshTrianglesBuffer != null &&
             meshPositionsBuffer != null &&
             meshNormalsBuffer != null &&
@@ -233,11 +234,10 @@ public class Grass : MonoBehaviour
     // "Resizes" instance point buffer and renders immediately when total point amount changes
     public void UpdateInstancePointsBuffer()
     {
-        instancePointData.GetVisiblePoints(ref instancePoints);
-
         instancePointsBuffer?.Release();
+        instancePointsBuffer = null;
 
-        if (instancePoints != null && instancePoints.Count > 0)
+        if (instancePointData.GetVisiblePoints(ref instancePoints))
         {
             instancePointsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, instancePoints.Count, 3 * sizeof(float));
             instancePointsBuffer.SetData(instancePoints);

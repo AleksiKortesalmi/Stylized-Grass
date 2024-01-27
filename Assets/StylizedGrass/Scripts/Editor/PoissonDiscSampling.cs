@@ -6,15 +6,17 @@ public static class PoissonDiscSampling
     readonly static List<Vector3> pointsCache = new List<Vector3>();
 
     /// <summary>
-    /// Generates points with Poisson Disc Sampling
+    /// Generate points with Poisson Disc Sampling by testing against <paramref name="nearByPoints"/>
     /// </summary>
     /// <param name="center">Brush center</param>
     /// <param name="radius">"Grass spread"</param>
     /// <param name="numSamples"></param>
-    /// <returns></returns>
+    /// <returns>Center + generated points</returns>
     public static List<Vector3> GeneratePointsInDisc(List<Vector3> nearByPoints, Vector3 center, float radius, int numSamples = 30)
     {
         pointsCache.Clear();
+
+        pointsCache.Add(center);
 
         for (int i = 0; i < numSamples; i++)
         {

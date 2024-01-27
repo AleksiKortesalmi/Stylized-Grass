@@ -39,7 +39,8 @@ public class InstancePointData : ScriptableObject
     List<Vector3Int> addedChunksCache = new List<Vector3Int>();
     Vector3Int oldChunkSize = default;
 
-    public int TotalPointAmount { get {
+    public int TotalPointAmount { 
+        get {
             if (chunks == null)
                 return 0;
             
@@ -64,8 +65,10 @@ public class InstancePointData : ScriptableObject
         }
     }
 
-    #region Serialization Help
-
+    #region Serialization
+    /// <summary>
+    /// Load points from serializedPoints array by placing them into to chunks with the help of serializedChunkMaps.
+    /// </summary>
     public void LoadPoints()
     {
         if (chunks != null)
@@ -81,10 +84,12 @@ public class InstancePointData : ScriptableObject
 
             chunks.Add(serializedChunkMaps[i].index, points);
         }
-
     }
 
 #if UNITY_EDITOR
+    /// <summary>
+    /// Save points from chunks into serializedPoints and generate serializedChunkMaps items to allow reversing this process.
+    /// </summary>
     public void SavePoints()
     {
         // Initialize values
@@ -117,6 +122,7 @@ public class InstancePointData : ScriptableObject
 
         bounds = CalculateTotalBounds();
 
+        // Save asset
         EditorUtility.SetDirty(this);
         AssetDatabase.SaveAssetIfDirty(this);
     }
@@ -125,7 +131,7 @@ public class InstancePointData : ScriptableObject
     {
         oldChunkSize = chunkSize;
     }
-
+    
     private void OnValidate()
     {
         if (chunkSize.x <= 0)
@@ -137,9 +143,10 @@ public class InstancePointData : ScriptableObject
         if (chunkSize.z <= 0)
             chunkSize.z = 1;
 
+        // If chunk size was changed => reassign all points to correct chunks
         if (oldChunkSize != chunkSize)
         {
-            ReAssignChunks();
+            ReassignChunks();
 
             oldChunkSize = chunkSize;
         }
@@ -150,18 +157,17 @@ public class InstancePointData : ScriptableObject
         return serializedPoints != null && serializedPoints.Length != TotalPointAmount;
     }
 #endif
-
     #endregion
 
     /// <summary>
-    /// Populates points with visible points if any points are visible. Otherwise returns false and doesn't touch points.
+    /// Populates <paramref name="points"/> with visible points if any points are visible.
     /// </summary>
     /// <returns>Is visible at all.</returns>
     public bool GetVisiblePoints(ref List<Vector3> points)
     {
         bool totalBoundsVisible = false;
         
-        if (Camera.allCamerasCount == 0 || chunks.Count == 0)
+        if (Camera.allCamerasCount == 0 || chunks.Count == 0 || TotalPointAmount == 0)
             return false;
 
         points.Clear();
@@ -195,7 +201,7 @@ public class InstancePointData : ScriptableObject
         }
 
 #if UNITY_EDITOR
-        // Calculate scene camera also if it is current (= not found in all scene cameras)
+        // Calculate scene camera also if it is current (= not found in Camera.allCameras)
         if (!Application.isPlaying && Camera.current && !Camera.allCameras.Contains(Camera.current))
         {
             frustumPlanes = GeometryUtility.CalculateFrustumPlanes(Camera.current);
@@ -225,24 +231,16 @@ public class InstancePointData : ScriptableObject
             return false;
     }
 
-    public void GetAllPoints(ref List<Vector3> points)
-    {
-        points.Clear();
-
-        foreach (var chunk in chunks.Keys)
-        {
-            points.AddRange(chunks[chunk]);
-        }
-    }
-
-    Vector3Int PointToChunk(Vector3 point)
-    {
-        return new Vector3Int(Mathf.FloorToInt(point.x / chunkSize.x), Mathf.FloorToInt(point.y / chunkSize.y), Mathf.FloorToInt(point.z / chunkSize.z));
-    }
-
     Bounds ChunkToBounds(Vector3Int chunk)
     {
         return new(chunk * chunkSize + (Vector3)chunkSize * 0.5f, chunkSize + boundsPadding);
+    }
+
+    // Helper methods for drawing, saving and gizmos
+#if UNITY_EDITOR
+    Vector3Int PointToChunk(Vector3 point)
+    {
+        return new Vector3Int(Mathf.FloorToInt(point.x / chunkSize.x), Mathf.FloorToInt(point.y / chunkSize.y), Mathf.FloorToInt(point.z / chunkSize.z));
     }
 
     Bounds CalculateTotalBounds()
@@ -257,16 +255,15 @@ public class InstancePointData : ScriptableObject
         return bounds;
     }
 
-#if UNITY_EDITOR
-    public void AddPointsToGrid(List<Vector3> points)
+    public void AddPointsToChunk(List<Vector3> points)
     {
         for (int i = 0; i < points.Count; i++)
         {
-            AddInstancePointToGrid(points[i]);
+            AddInstancePointToChunk(points[i]);
         }
     }
 
-    public void AddInstancePointToGrid(Vector3 point)
+    public void AddInstancePointToChunk(Vector3 point)
     {
         Vector3Int chunk = PointToChunk(point);
 
@@ -276,6 +273,9 @@ public class InstancePointData : ScriptableObject
             chunks[chunk] = new() { point };
     }
 
+    /// <summary>
+    /// Remove points around <paramref name="point"/> in <paramref name="brushRadius"/>.
+    /// </summary>
     public void RemoveInstancePointsAroundPoint(Vector3 point, float brushRadius)
     {
         Vector3Int chunk = PointToChunk(point);
@@ -283,22 +283,44 @@ public class InstancePointData : ScriptableObject
         if (!chunks.ContainsKey(chunk))
             return;
 
-        // Delete instance points within given radius of given point
-        for (int i = 0; i < chunks[chunk].Count; i++)
+        // Go through points in chunk and it's neighbouring chunks (3x3x3 grid)
+        var indexer = Vector3Int.one;
+        for (int x = chunk.x - 1; x <= chunk.x + 1; x++)
         {
-            if (Vector3.Distance(chunks[chunk][i], point) < brushRadius)
+            for (int y = chunk.y - 1; y <= chunk.y + 1; y++)
             {
-                chunks[chunk].RemoveAt(i);
+                for (int z = chunk.z - 1; z <= chunk.z + 1; z++)
+                {
+                    indexer.x = x;
+                    indexer.y = y;
+                    indexer.z = z;
 
-                i--;
+                    if (chunks.ContainsKey(indexer))
+                    {
+                        // Delete instance points within given radius of given point
+                        for (int i = 0; i < chunks[indexer].Count; i++)
+                        {
+                            if (Vector3.Distance(chunks[indexer][i], point) < brushRadius)
+                            {
+                                chunks[indexer].RemoveAt(i);
+
+                                i--;
+                            }
+                        }
+
+                        // Delete chunk if its empty
+                        if (chunks[indexer].Count == 0)
+                            chunks.Remove(indexer);
+                    }
+                }
             }
         }
 
-        // Delete chunk if its empty
-        if (chunks[chunk].Count == 0)
-            chunks.Remove(chunk);
     }
 
+    /// <summary>
+    /// Populate <paramref name="adjacentChunkPoints"/> with all the points from the chunk that <paramref name="point"/> is in and it's neighbours (3x3x3 grid).
+    /// </summary>
     public void GetPointsAdjacentChunks(Vector3 point, ref List<Vector3> adjacentChunkPoints)
     {
         adjacentChunkPoints.Clear();
@@ -306,26 +328,40 @@ public class InstancePointData : ScriptableObject
         var chunk = PointToChunk(point);
         var indexer = Vector3Int.one;
 
-        // Get points from adjacent chunks in 3x3 pattern
+        // Get points from adjacent chunks in 3x3x3 pattern
         for (int x = chunk.x - 1; x <= chunk.x + 1; x++)
         {
-            for (int z = chunk.z - 1; z <= chunk.z + 1; z++)
+            for (int y = chunk.y - 1; y <= chunk.y + 1; y++)
             {
-                indexer.x = x; 
-                indexer.y = chunk.y; 
-                indexer.z = z;
-
-                if (chunks.ContainsKey(indexer))
+                for (int z = chunk.z - 1; z <= chunk.z + 1; z++)
                 {
-                    adjacentChunkPoints.AddRange(chunks[indexer]);
-                }
+                    indexer.x = x;
+                    indexer.y = y;
+                    indexer.z = z;
 
-                //Debug.Log(x + " " + chunk.y + " " + z);
+                    if (chunks.ContainsKey(indexer))
+                    {
+                        adjacentChunkPoints.AddRange(chunks[indexer]);
+                    }
+                }
             }
         }
     }
 
-    private void ReAssignChunks()
+    public void GetAllPoints(ref List<Vector3> points)
+    {
+        points.Clear();
+
+        foreach (var chunk in chunks.Keys)
+        {
+            points.AddRange(chunks[chunk]);
+        }
+    }
+
+    /// <summary>
+    /// Reassign all points to chunks. Useful when chunk size changes.
+    /// </summary>
+    private void ReassignChunks()
     {
         if (chunks == null)
             return;
@@ -338,12 +374,13 @@ public class InstancePointData : ScriptableObject
 
         for (int i = 0; i < points.Count; i++)
         {
-            AddInstancePointToGrid(points[i]);
+            AddInstancePointToChunk(points[i]);
         }
 
         SavePoints();
     }
 
+    // Gizmos for chunk visualization
     public void DrawGizmos()
     {
         Bounds bounds;
