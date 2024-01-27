@@ -7254,7 +7254,6 @@ MonoBehaviour:
   - {x: -0.0065451376, y: -0.0000001233397, z: -1.2218434}
   - {x: -0.13035299, y: -0.0000001233397, z: -0.8907188}
   - {x: -0.07223916, y: -0.00000012330332, z: -1.1132172}
-  - {x: 0.8125044, y: 0.42260027, z: -1.364175}
   serializedChunkMaps:
   - index: {x: 1, y: 0, z: 1}
     startingPointIndex: 0
@@ -7346,9 +7345,6 @@ MonoBehaviour:
   - index: {x: -1, y: -1, z: -1}
     startingPointIndex: 7177
     pointCount: 62
-  - index: {x: 0, y: 0, z: -1}
-    startingPointIndex: 7239
-    pointCount: 1
   bounds:
     m_Center: {x: 0, y: 0, z: 1}
     m_Extent: {x: 6, y: 2, z: 5}
