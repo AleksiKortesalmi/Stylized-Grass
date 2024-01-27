@@ -24,12 +24,29 @@ uniform float2 _RotRange;
 uniform float _GeometryNoiseScale;
 uniform float _InteractorStrength;
 
+float3 MaxVector3(float value, float3 value3)
+{
+    value3.r = max(value, value3.r);
+    value3.g = max(value, value3.g);
+    value3.b = max(value, value3.b);
+    
+    return value3;
+}
+
+float GetColorIntensity(float3 color)
+{
+    float intensity = max(color.r, color.g);
+    intensity = max(intensity, color.b);
+    
+    return intensity;
+}
+
 float4 SampleRamp(float light, sampler2D rampTexture)
 {
     // Make the sample position to the middle of pixels
-    light = (floor(light * _RampTexWidth) +.5f) / _RampTexWidth;
-    // Sample the ramp texture (should be 1 dimensional, for example 4x1 resolution would result in 4 light steps)
-    return tex2D(rampTexture, float2(saturate(light), 0));
+    light = (floor(light * _RampTexWidth) + 0.5f) / _RampTexWidth;
+    // Sample the ramp texture (should be "1 dimensional", for example 4x1 resolution upscaled resulting in 4 light steps)
+    return tex2D(rampTexture, float2(min(light, .99f), 0));
 }
 
 float3 CalculateMainLight(float4 posWS, half3 normal, float4 shadowColor, sampler2D rampTexture)
@@ -61,43 +78,24 @@ float3 CalculateSimpleMainLight(float4 shadowColor, float4 posWS)
 // Wrote inline to fasten compiling (slow was caused by looped tex2D call?)
 float3 CalculateAdditionalLight(float4 posWS, float4 shadowColor, sampler2D rampTexture)
 {
-    float3 totalLight = float3(0, 0, 0);
+    float3 totalLight = 0;
     uint lightsCount = GetAdditionalLightsCount();
-
-    // First light
-    Light light = GetAdditionalLight(0, posWS.xyz);
-    half3 shadow;
     
-    if (light.distanceAttenuation > 0)
+    for (uint i = 0; i < lightsCount; i++)
     {
-        shadow = AdditionalLightRealtimeShadow(0, posWS.xyz, light.direction);
-    
-        // Ramp the light and apply shadow
-        totalLight += SampleRamp(sqrt(light.distanceAttenuation), rampTexture).rgb * light.color * shadow;
-    }
-    
-    // Second light
-    light = GetAdditionalLight(1, posWS.xyz);
-    
-    if (light.distanceAttenuation > 0)
-    {
-        shadow = AdditionalLightRealtimeShadow(1, posWS.xyz, light.direction);
+        Light light = GetAdditionalLight(i, posWS.xyz);
         
-        // Ramp the light and apply shadow
-        totalLight += SampleRamp(sqrt(light.distanceAttenuation), rampTexture).rgb * light.color * shadow;
-    }
-    
-    // Third light
-    light = GetAdditionalLight(2, posWS.xyz);
-    
-    if (light.distanceAttenuation > 0)
-    {
-        shadow = AdditionalLightRealtimeShadow(2, posWS.xyz, light.direction);
+        // Get square root of the distance attenuation to get more linear light falloff
+        float3 distAttenuatedColor = light.color * sqrt(light.distanceAttenuation);
         
-        // Ramp the light and apply shadow
-        totalLight += SampleRamp(sqrt(light.distanceAttenuation), rampTexture).rgb * light.color * shadow;
+        half3 shadow = half3(AdditionalLightRealtimeShadow(i, posWS.xyz, light.direction), 1, 1);
+        shadow = lerp(shadowColor.rgb, half3(1, 1, 1), shadow.r);
+        
+        // Ramp the light
+        totalLight = totalLight + MaxVector3(0, normalize(distAttenuatedColor) * SampleRamp(GetColorIntensity(distAttenuatedColor), rampTexture).rgb * shadow).rgb * GetColorIntensity(light.color);
     }
     
+    // Clamp to 0
     return totalLight;
 }
 
